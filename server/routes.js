@@ -4,6 +4,7 @@ const client = require("../index");
 const axios = require('axios');
 const { Router } = require('express');
 const utils = require('./utils.js');
+const UserSchema = require("./models/user.js");
 
 const router = Router();
 
@@ -12,6 +13,21 @@ router.get('/', async (req, res) => {
 	res.render('index', { status });
 });
 
+const embedUser = (role) => new EmbedBuilder()
+.setColor(0x00FF00)
+.setTitle('Επιτυχής σύνδεση!')
+.setDescription(`Το discord σας έχει συνδεθεί επιτυχώς με τον λογαριασμό σας!\nΠλεόν μπορείται να αξιοποιείσετε όλες τις δυνατότητες του ρόλου **${role}**`);
+
+const embedChannel = (userId) => new EmbedBuilder()
+.setColor(0x00FF00)
+.setTitle(`Επιτυχής αυθεντικοποίηση χρήστη!`)
+.setDescription(`Ο χρήστης <@${userId}>\n Μόλις αυθεντικοποίηθηκε στο σύστημα!`)
+.setTimestamp();
+
+const embedUserSameApps = (user, existingUser) => new EmbedBuilder()
+.setColor(0x00FF00)
+.setTitle(`[!] Κίνδυνος BOT [!]`)
+.setDescription(`Ο χρήστης <@${user}> προσπάθησε να συνδέσει τον <@${existingUser}> με το ίδιο apps account!`);
 
 router.get('/callback', async (req, res) => {
 
@@ -29,32 +45,35 @@ router.get('/callback', async (req, res) => {
 		const state = req.query.state.split(',');
 		const userID = state[0];
 		const guildID = state[1];
+
+		const [token, eduPersonAffiliation] = await utils.exchangeForTokens(userID, authCodeProof);
+
+		const guildUser = client.guilds.cache.get(config.GuildID).members.cache.get(userID);
+		const logChannel = client.guilds.cache.get(config.GuildID).channels.cache.get(config.announcements.log_channel);
 		
-		const token = await utils.exchangeForTokens(userID, authCodeProof);
+		if(token.sameAppsDifferentUser==true){
+			logChannel.send({embeds: [embedUserSameApps(guildUser.user.id, token.existingUser)]})
+			return res.redirect(`/?msg=error`);
+		}
+
+		const roleId = utils.getRoleId(eduPersonAffiliation)
+		const authRole = client.guilds.cache.get(guildID).roles.cache.find(role => role.id === roleId);
+
+		guildUser.roles.add(authRole);
+		
 		//If any error occurs, redirect user to the /error endpoint with the error message
 		if (token.message) {
 			return res.redirect(`/?msg=${token.message}`);
 		}
 
-		// add config.announcements.auth_role role to the user with ID userID
-		const role = client.guilds.cache.get(guildID).roles.cache.find(role => role.id === config.announcements.auth_role);
-		if (role) {
-			const user = client.guilds.cache.get(guildID).members.cache.get( userID );
-			await user.roles.add(role);
-		} else {
-			console.log("Failed to add auth role");
-		}
-
 		//send embed to user with userID, with an embed saying Succesfully connected
-		const embed = new EmbedBuilder()
-			.setColor(0x00FF00)
-			.setTitle('Επιτυχής σύνδεση!')
-			.setDescription('Το discord σας έχει συνδεθεί επιτυχώς με τον λογαριασμό σας!\n Τώρα μπορείτε να χρησιμοποιήσετε τις εντολές του bot!');
-			// .setTimestamp();
-
 		const user = await client.users.fetch(userID);
+		
+
 		console.log(`User ${user.tag} has been authenticated`);
-		user.send({ embeds: [embed] });
+
+		logChannel.send({ embeds: [embedChannel(guildUser.id)] })
+		user.send({ embeds: [embedUser(authRole.name)] });
 
 		// Once the tokens have been retrieved, we are done and ready to make queries
 		res.redirect(`/?status=acc_connected`);

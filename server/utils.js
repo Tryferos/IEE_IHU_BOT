@@ -24,17 +24,36 @@ exports.exchangeForTokens = async (userID, exchangeProof) => {
 			return res.data;
 		});
 
-		const tags = await this.getUserTags(token.access_token);
+		const userCredentials = await axios.request({
+			url: '/profile',
+			method: 'get',
+			baseURL: 'https://api.iee.ihu.gr/',
+			headers: {
+				"x-access-token": token.access_token,
+				"Content-Type": "application/json"
+			}
+		})
+
+		const {regyear, id: appsId, eduPersonAffiliation} = userCredentials.data;
+
+		// const tags = await this.getUserTags(token.access_token);
+		const tags = [];
 		
 		// Usually, this token data should be persisted in a database and associated with a user identity.
-		const user = await User.findOne({ userId: userID });
-		if (user) {
+		const sameUser = await User.findOne({ userId: userID, appsId: appsId});
+
+		const sameAppsDifferentUser = await User.findOne({$and: [{appsId: appsId}, {userId: {$ne: userID}}]})
+		if(sameAppsDifferentUser){
+			return [{sameAppsDifferentUser: true, existingUser: userID}]
+		}
+
+		if (sameUser) {
 			//User exists
-			user.accessToken = token.access_token;
-			user.refreshToken = token.refresh_token;
-			user.expiresAt = new Date(Date.now() + 102000);
-			user.tags = tags;
-			user.save();
+			sameUser.accessToken = token.access_token;
+			sameUser.refreshToken = token.refresh_token;
+			sameUser.expiresAt = new Date(Date.now() + 102000);
+			sameUser.tags = tags;
+			sameUser.save();
 		} else {
 			//User doesn't exist
 			//expires after 2 minutes
@@ -42,25 +61,30 @@ exports.exchangeForTokens = async (userID, exchangeProof) => {
 				guild_id: config.GuildID,
 				userId: userID,
 				accessToken: token.access_token,
+				regyear: regyear,
+				appsId: appsId,
+				role: eduPersonAffiliation,
 				refreshToken: token.refresh_token,
 				expiresAt: new Date(Date.now() + 102000), //96000ms = 1.7m
 				tags: tags
 			});
-			newUser.save();
+			await newUser.save();
 		}
 		
 		// refreshTokenStore[userId] = token.refresh_token;
 		// accessTokenCache.set(userId, token.access_token, 110); //token expires after 2 minutes
   
 		console.log(chalk.green('       > Received an access token and refresh token'));
-		return token.access_token;
+		return [token.access_token, eduPersonAffiliation];
 	} catch (e) {
 		return console.log(e);
 		// console.error(chalk.red(`       > Error exchanging ${exchangeProof.grant_type} for access token`));
 		// return JSON.parse(e.response.body);
 	}
 };
-  
+
+exports.getRoleId = (role) => role.toLowerCase() == 'student' ? config.auth_role_student : config.auth_role_teacher
+
 exports.refreshAccessToken = async (userId) => {
 	//get userID's refresh token
 	const user = await User.findOne({ userId: userId });
@@ -332,7 +356,7 @@ exports.getUserTags = async (accessToken) => {
 			}
 		};
 
-		const tags = await axios.get('https://aboard.iee.ihu.gr/api/auth/subscriptions', config).then((res) => {
+		const tags = await axios.get('https://aboard.iee.ihu.gr/api/v2/auth/subscriptions', config).then((res) => {
 			return res.data;
 		});
 
@@ -342,7 +366,7 @@ exports.getUserTags = async (accessToken) => {
 			list.push(tag.id);
 		});
 
-		return list;
+		return [];
 	
 	} catch (e) {
 		console.error(chalk.red('  > Unable to retrieve tags'));

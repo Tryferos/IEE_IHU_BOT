@@ -2,6 +2,13 @@ const { EmbedBuilder } = require("discord.js");
 const User = require('../../../server/models/user');
 const config = require('../../../config/config.js');
 const chalk = require('chalk');
+const utils = require('../../../server/utils')
+
+const embedChannel = (userId) => new EmbedBuilder()
+.setColor(0x00FF00)
+.setTitle(`Αφαίρεση Αυθεντικοποίηση χρήστη`)
+.setDescription(`Ο χρήστης <@${userId}>\n μόλις αφαίρεσε τον εαυτό του από το σύστημα \:skull:`)
+.setTimestamp();
 
 module.exports = {
     name: "deauth",
@@ -21,23 +28,25 @@ module.exports = {
 			if (user) {
 				console.log(chalk.bgYellow(`User ${userID} is deauthenticated`));
 				//User exists in DB
-				await user.deleteOne();
+				await user.delete();
 
 				// remove authenticated role from user
-				const role = interaction.guild.roles.cache.find(role => role.id === config.announcements.auth_role);
+				const roleId = utils.getRoleId(user.role ?? 'student')
+				guild.members.cache.get(userID).roles.remove(guild.roles.cache.find(role => role.id === roleId));
 
-				await interaction.member.roles.remove(role);
+				const logChannel = client.guilds.cache.get(config.GuildID).channels.cache.get(config.announcements.log_channel);
+				logChannel.send({embeds: [embedChannel(userID)]})
 
 				const embed = new EmbedBuilder()
 					.setTitle("Goodbye 😥")
-					.setDescription(`Ο λογαριασμός σας αφαιρέθηκε από το σύστημα. Αν θέλετε να συνδεθείτε ξανά, πατήστε το /auth`)
+					.setDescription(`Ο λογαριασμός σας αφαιρέθηκε από το σύστημα. Αν θέλετε να συνδεθείτε ξανά, πατήστε το \`/auth\``)
 					.setColor("Random")
 				interaction.reply({ embeds: [embed], ephemeral: true });
 			} else {
 				//User does not exist in DB
 				const embed = new EmbedBuilder()
 					.setTitle("404? 😕")
-					.setDescription(`Δεν υπάρχεις στο σύστημα.\nΑν θες να συνδεθείς, πατήστε το /auth`)
+					.setDescription(`Δεν υπάρχεις στο σύστημα.\nΑν θες να συνδεθείς, πατήστε το \`/auth\``)
 					.setColor("Random")
 				interaction.reply({ embeds: [embed], ephemeral: true });
 			}

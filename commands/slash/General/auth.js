@@ -26,7 +26,7 @@ module.exports = {
 		await User.findOne({ userId: userID }).then(async (user) => {
 			if (user) {
 				//User exists in DB
-				interaction.reply({ content: `Έχεις ήδη συνδεθεί με τον λογαριασμό σου στο ΙΕΕ.`, ephemeral: true });
+				interaction.reply({ content: `Έχεις ήδη συνδεθεί με τον λογαριασμό σου στο ΙΕΕ.\n\nΑν πρόκειται για λάθος, χρησιμοποίησε την εντολή \`/deauth\``, ephemeral: true });
 			} else {
 				//User does not exist in DB
 				const authURL = `https://login.iee.ihu.gr/authorization/?client_id=${config.ihu_app.CLIENT_ID}&response_type=code&state=${userID},${guild_id}&scope=${config.ihu_app.SCOPES}&redirect_uri=${config.ihu_app.REDIRECT_URI}`;
