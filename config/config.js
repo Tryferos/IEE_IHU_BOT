@@ -34,5 +34,4 @@ module.exports = {
     g_secretKey: "",
     contact_form_channel: process.env.LOG_CHANNEL
   }
-
 }
