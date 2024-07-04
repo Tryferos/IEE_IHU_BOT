@@ -17,6 +17,10 @@
         {
             "src": "server/views/**",
             "use": "@vercel/static"
+        },
+        {
+            "src": "server/models/**",
+            "use": "@vercel/static"
         }
     ],
     "routes": [
