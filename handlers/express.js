@@ -8,9 +8,11 @@ require('dotenv').config()
 module.exports = (client) => {
 
 	const app = express();
-	app.use(express.static('../server/public'));
+	app.use(express.static('./server/public'));
+	app.use(express.static('./server/views'));
+	app.use(express.static('./server/model'));
 	app.set('view engine', 'ejs');
-	app.set('views', '../server/views');
+	app.set('views', './server/views');
 	app.use(bodyParser.urlencoded({ extended: true }));
 
 	const PORT = config.Port || 3000;
