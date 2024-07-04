@@ -2,10 +2,11 @@
   "name": "iee-announcements",
   "version": "1.0.0",
   "description": "A discord bot that checks for new announcements",
-  "main": "index.js",
+  "main": "express_index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "vercel": "node express_index.js"
   },
   "keywords": [],
   "author": "T.F.A#7524",
